@@ -57,7 +57,7 @@ MediGo is an innovative mobile application designed to revolutionize healthcare 
 
 1. Clone the repository
    bash
-   git clone https://github.com/yourusername/medigo.git
+   git clone https://github.com/kashishadwani/MediGO_veersa_technology.git
    cd medigo
    
 
@@ -111,14 +111,6 @@ MediGo is an innovative mobile application designed to revolutionize healthcare 
 - Maintain consistent coding style
 - Include unit tests for new features
 
-## 📜 License
-MIT License
-
-## 📞 Support
-For issues, feature requests, or support:
-- Email: support@medigo.com
-- GitHub Issues: [Project Issues](https://github.com/yourusername/medigo/issues)
-
 ## 🌐 Future Roadmap
 - Telemedicine integration
 - Insurance verification
@@ -133,4 +125,4 @@ For issues, feature requests, or support:
 
 ---
 
-*Developed with ❤ by [Your Name/Organization]*
+*Developed with ❤ by kashish adwani [Team How i met your bug]*
