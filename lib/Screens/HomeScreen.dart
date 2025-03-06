@@ -1,94 +1,124 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-class HomeScreen extends StatefulWidget {
 
+// Providers
+import 'package:appointment_scheduling_app/Providers/auth_provider.dart';
+import 'package:appointment_scheduling_app/Providers/doctor_provider.dart';
+import 'package:appointment_scheduling_app/Providers/appointment_provider.dart';
+
+// Screens
+import 'doctor_search_screen.dart';
+import 'my_appointments_screen.dart';
+import 'profile_screen.dart';
+
+class HomeScreen extends StatefulWidget {
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  _HomeScreenState createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  TextEditingController searchController = TextEditingController();
-  String searchQuery = "";
-  GoogleMapController? mapController;
-  Position? currentPosition;
+  int _selectedIndex = 0;
+  Position? _currentPosition;
+
   @override
-  void initState(){
+  void initState() {
     super.initState();
-    _getUserLocation();
+    _fetchDoctorsAndLocation();
   }
-  void _getUserLocation() async{
-    Position position = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high
-    );
+
+  Future<void> _fetchDoctorsAndLocation() async {
+    // Fetch doctors
+    await Provider.of<DoctorProvider>(context, listen: false).fetchDoctors();
+
+    // Get user location
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return Future.error('Location services are disabled.');
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return Future.error('Location permissions are denied');
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      return Future.error(
+          'Location permissions are permanently denied, we cannot request permissions.'
+      );
+    }
+
+    // Get current position
+    try {
+      Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high
+      );
+
+      setState(() {
+        _currentPosition = position;
+      });
+
+      // Find nearby doctors
+      await Provider.of<DoctorProvider>(context, listen: false)
+          .findNearbyDoctors(position);
+    } catch (e) {
+      print('Location Error: $e');
+    }
+  }
+
+  static List<Widget> _widgetOptions = [
+    DoctorSearchScreen(),
+    MyAppointmentsScreen(),
+    ProfileScreen(),
+  ];
+
+  void _onItemTapped(int index) {
     setState(() {
-      currentPosition = position;
+      _selectedIndex = index;
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Doctors")),
-      body: Column(
-        children: [
-          Padding(
-            padding: EdgeInsets.all(8.0),
-            child: TextField(
-              controller: searchController,
-              decoration: InputDecoration(
-                labelText: "Search by specialty",
-                suffixIcon: IconButton(
-                  icon: Icon(Icons.search),
-                  onPressed: () {
-                    setState(() {
-                      searchQuery = searchController.text;
-                    });
-                  },
-                ),
-              ),
-            ),
-          ),
-          Expanded(
-            child: StreamBuilder(
-              stream: FirebaseFirestore.instance.collection('doctors').snapshots(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) return CircularProgressIndicator();
-                var filteredDocs = snapshot.data!.docs.where((doc) {
-                  return doc['specialty'].toString().toLowerCase().contains(searchQuery.toLowerCase());
-                }).toList();
-                return ListView.builder(
-                  itemCount: filteredDocs.length,
-                  itemBuilder: (context, index) {
-                    var doctor = filteredDocs[index];
-                    return ListTile(
-                      title: Text(doctor['name']),
-                      subtitle: Text(doctor['specialty']),
-                      trailing: ElevatedButton(
-                        onPressed: () {},
-                        child: Text('Book'),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-          if (currentPosition != null)
-            SizedBox(
-              height: 300,
-              child: GoogleMap(
-                initialCameraPosition: CameraPosition(
-                  target: LatLng(currentPosition!.latitude, currentPosition!.longitude),
-                  zoom: 12,
-                ),
-                onMapCreated: (GoogleMapController controller) {
-                  mapController = controller;
-                },
-              ),
-            ),
+      appBar: AppBar(
+        title: Text('MediGO'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.logout),
+            onPressed: () {
+              Provider.of<MyAuthProvider>(context, listen: false).signOut();
+            },
+          )
         ],
+      ),
+      body: Center(
+        child: _widgetOptions.elementAt(_selectedIndex),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.search),
+            label: 'Find Doctors',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.calendar_today),
+            label: 'My Appointments',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Profile',
+          ),
+        ],
+        currentIndex: _selectedIndex,
+        selectedItemColor: Colors.blue,
+        onTap: _onItemTapped,
       ),
     );
   }
